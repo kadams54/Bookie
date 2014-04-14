@@ -105,6 +105,37 @@ def ping_missing_api(request):
     })
 
 
+def _suggest_tags_on_info(url, title):
+    parsed_title = urlparse(title)
+    parsed_url = urlparse(url)
+
+    # If the page doesn't have a title the url will be sent
+    # in place of title so parse title every time.
+    tag_list = set()
+
+    def _generate_nouns_from_url(parsed_url):
+        res = set()
+        clean_path = " ".join(parsed_url.split("/"))
+        path_tokens = TextBlob(clean_path)
+        title_nouns = path_tokens.noun_phrases
+        for result in title_nouns:
+            # If result has spaces split it to match our tag system.
+            nouns = result.split()
+            res.update(nouns)
+        return res
+
+    # Check if title is url. If title is not a string, url, and title will be
+    # the same so no need to consider tags from url.
+    if parsed_title.hostname:
+        tag_list.update(_generate_nouns_from_url(parsed_url.path))
+    else:
+        # If the title is not a url extract nouns from title and the url.
+        tag_list.update(_generate_nouns_from_url(title))
+        tag_list.update(_generate_nouns_from_url(parsed_url.path))
+
+    return tag_list
+
+
 @view_config(route_name="api_bmark_hash", renderer="jsonp")
 @api_auth('api_key', UserMgr.get, anon=True)
 def bmark_get(request):
@@ -118,88 +149,59 @@ def bmark_get(request):
     params = request.params
     hash_id = rdict.get('hash_id', None)
     username = rdict.get('username', None)
-    title = params['description']
-    url = params['url']
+    title = params.get('description', None)
+    url = params.get('url', None)
     if username:
         username = username.lower()
 
-    # the hash id will always be there or the route won't match
-    bookmark = BmarkMgr.get_by_hash(hash_id,
-                                    username=username)
-    #get the suggested tags first
-    # if the page don't have a title url will be sent
-    # in place of title so parse title everytime
-    title_tags = []
+    # The hash id will always be there or the route won't match.
+    bookmark = BmarkMgr.get_by_hash(hash_id, username=username)
+
     # tag_list is a set - no duplicates
     tag_list = set()
-    url_tags = []
     recent_tags = []
-    parsed_title = urlparse(title)
-    parsed_url = urlparse(url)
+
+    if title or url:
+        tag_list.update(_suggest_tags_on_info(url, title))
+
     # Get the recent tags of the user
     recent = BmarkMgr.get_recent_bmark(username=username)
     if recent:
         recent_tags.extend(recent.tag_str.split(u" "))
-    recent_tags = list(set(recent_tags))
+    recent_tags = set(recent_tags)
     tag_list.update(recent_tags)
-    # Check if title is url
-    # if title is not a string , url and title will be same
-    # so no need to consider tags from url
-    if parsed_title.hostname:
-        # Not adding hostname , will include it in a new db field
-        # title_tags.append(parsed_title.hostname)
-        clean_path = " ".join(parsed_url.path.split("/"))
-        path_token = TextBlob(clean_path)
-        title_nouns = path_token.noun_phrases
-        for result in title_nouns:
-            # if result have spaces split it
-            nouns = result.split()
-            for noun in nouns:
-                title_tags.append(noun)
-        tag_list.update(title_tags)
-    # Else extract nouns from title and tags from url
-    else:
-        title_token = TextBlob(title)
-        title_nouns = title_token.noun_phrases
-        for result in title_nouns:
-            # if result have spaces split it
-            nouns = result.split()
-            for noun in nouns:
-                title_tags.append(noun)
-        # Not adding hostname , will include it in a new db field
-        # url_tags.append(parsed_url.hostname)
-        clean_path = " ".join(parsed_url.path.split("/"))
-        path_token = TextBlob(clean_path)
-        url_nouns = path_token.noun_phrases
-        for result in url_nouns:
-                # if result have spaces split it
-                nouns = result.split()
-                for noun in nouns:
-                    url_tags.append(noun)
-        tag_list.update(title_tags)
-        tag_list.update(url_tags)
+
     last_bmark = {}
     if 'last_bmark' in params and params['last_bmark'] != "false":
         last = BmarkMgr.get_recent_bmark(username=username)
         if last is not None:
             last_bmark = {'last': dict(last)}
+            last_bmark['last']['tags'] = [
+                dict(tag[1]) for tag in last.tags.items()
+            ]
+            tag_list.update(
+                set([t['name'] for t in last_bmark['last']['tags']]))
+
     if bookmark is None:
         request.response.status_int = 404
         ret = {'error': "Bookmark for hash id {0} not found".format(hash_id)}
         # Pack the response with Suggested Tags.
-        resp_tags = {'tags': list(tag_list)}
+        resp_tags = {'tag_suggestions': list(tag_list)}
         ret.update(last_bmark)
         ret.update(resp_tags)
         return _api_response(request, ret)
     else:
         return_obj = dict(bookmark)
+        return_obj['tags'] = [dict(tag[1]) for tag in bookmark.tags.items()]
 
         if 'with_content' in params and params['with_content'] != 'false':
             if bookmark.readable:
                 return_obj['readable'] = dict(bookmark.readable)
-        # Pack the response with Suggested Tags.                
-        return_obj['tags'] = list(tag_list)
-        ret = {'bmark': return_obj}
+        # Pack the response with Suggested Tags.
+        ret = {
+            'bmark': return_obj,
+            'tag_suggestions': list(tag_list)
+        }
         ret.update(last_bmark)
         return _api_response(request, ret)
 
