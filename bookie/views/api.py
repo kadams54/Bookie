@@ -7,8 +7,6 @@ from pyramid.view import view_config
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import contains_eager
 from StringIO import StringIO
-from urlparse import urlparse
-from textblob import TextBlob
 
 from bookie.bcelery import tasks
 from bookie.lib.access import api_auth
@@ -18,6 +16,7 @@ from bookie.lib.message import ReactivateMsg
 from bookie.lib.message import ActivationMsg
 from bookie.lib.readable import ReadContent
 from bookie.lib.tagcommands import Commander
+from bookie.lib.utils import suggest_tags
 
 from bookie.models import Bmark
 from bookie.models import BmarkMgr
@@ -105,37 +104,6 @@ def ping_missing_api(request):
     })
 
 
-def _suggest_tags_on_info(url, title):
-    parsed_title = urlparse(title)
-    parsed_url = urlparse(url)
-
-    # If the page doesn't have a title the url will be sent
-    # in place of title so parse title every time.
-    tag_list = set()
-
-    def _generate_nouns_from_url(parsed_url):
-        res = set()
-        clean_path = " ".join(parsed_url.split("/"))
-        path_tokens = TextBlob(clean_path)
-        title_nouns = path_tokens.noun_phrases
-        for result in title_nouns:
-            # If result has spaces split it to match our tag system.
-            nouns = result.split()
-            res.update(nouns)
-        return res
-
-    # Check if title is url. If title is not a string, url, and title will be
-    # the same so no need to consider tags from url.
-    if parsed_title.hostname:
-        tag_list.update(_generate_nouns_from_url(parsed_url.path))
-    else:
-        # If the title is not a url extract nouns from title and the url.
-        tag_list.update(_generate_nouns_from_url(title))
-        tag_list.update(_generate_nouns_from_url(parsed_url.path))
-
-    return tag_list
-
-
 @view_config(route_name="api_bmark_hash", renderer="jsonp")
 @api_auth('api_key', UserMgr.get, anon=True)
 def bmark_get(request):
@@ -162,7 +130,9 @@ def bmark_get(request):
     recent_tags = []
 
     if title or url:
-        tag_list.update(_suggest_tags_on_info(url, title))
+        suggested_tags = suggest_tags(url)
+        suggested_tags.update(suggest_tags(title))
+        tag_list.update(suggested_tags)
 
     # Get the recent tags of the user
     recent = BmarkMgr.get_recent_bmark(username=username)
@@ -179,8 +149,6 @@ def bmark_get(request):
             last_bmark['last']['tags'] = [
                 dict(tag[1]) for tag in last.tags.items()
             ]
-            tag_list.update(
-                set([t['name'] for t in last_bmark['last']['tags']]))
 
     if bookmark is None:
         request.response.status_int = 404
