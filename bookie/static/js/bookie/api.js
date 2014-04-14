@@ -150,14 +150,20 @@ YUI.add('bookie-api', function (Y) {
          *
          */
         build_url: function (data) {
+            var resource = this.get('resource');
+
             // make sure the username is in the config as well
             if (Y.Lang.isObject(data)) {
                 data.username = this.get('username');
-                data.resource = this.get('resource');
+                if (resource) {
+                    data.resource = resource;
+                }
             } else {
                 data = {};
                 data.username = this.get('username');
-                data.resource = this.get('resource');
+                if (resource) {
+                    data.resource = resource;
+                }
             }
 
             return this.get('url') +

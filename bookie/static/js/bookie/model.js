@@ -210,6 +210,10 @@ YUI.add('bookie-model', function (Y) {
                         if (data.last) {
                             that.set('last', data.last);
                         }
+
+                        if (data.tag_suggestions) {
+                            that.set('tag_suggestions', data.tag_suggestions);
+                        }
                     }
                 });
             },
@@ -681,7 +685,7 @@ YUI.add('bookie-model', function (Y) {
          *
          */
         _read: function (options, callback) {
-            this.set('api_url',
+           this.set('api_url',
                 this._get_data('api_url', this.get('api_url')));
            this.set('api_username',
                 this._get_data('api_username', this.get('api_username')));

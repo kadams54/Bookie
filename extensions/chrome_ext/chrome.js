@@ -177,7 +177,7 @@ YUI().add('bookie-chrome', function (Y) {
 
             // if we've gotten back a last bookmark, then make sure we build a
             // list of tags for the clicking in the view
-            if (!this.loaded_recent && model.get('tag_suggestions')) {
+            if (model.get('tag_suggestions')) {
                 // find any tags and pass them to the suggestion handler
                 this.loaded_recent = true;
                 this._build_suggested_tags(model.get('tag_suggestions'));
