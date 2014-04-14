@@ -371,7 +371,7 @@ run_prod:
 	$(PASTER) --pid-file=app.pid $(BOOKIE_INI) &
 .PHONY: run_app
 run_app:
-	NLTK_DATA=$(NLTK_DATA) $(PY) $(PASTER) --reload $(BOOKIE_INI)
+	NLTK_DATA=$(NLTK_DATA) $(PASTER) --reload $(BOOKIE_INI)
 .PHONY: run_livereload
 run_livereload:
 	livereload

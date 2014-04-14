@@ -529,7 +529,7 @@ YUI.add('bookie-api', function (Y) {
                     hash_id: this.get('hash_id'),
                     username: this.get('username'),
                     last_bmark: this.get('last_bmark'),
-		    		url: cfg.tab_url,
+                    url: cfg.tab_url,
                     description: cfg.tab_title
                 };
             }
@@ -583,7 +583,7 @@ YUI.add('bookie-api', function (Y) {
 
                 /**
                  * We suggest tags based on the title of the page
-                 * If the page has no title , url will be sent in 
+                 * If the page has no title , url will be sent in
                  * place of title.
                  *
                  * @attribute description
@@ -593,9 +593,9 @@ YUI.add('bookie-api', function (Y) {
                  *
                  */
                 description: {
-                	required: true
-                }, 
-                
+                    required: true
+                },
+
                 /**
                  * We suggest tags based on the url of the page
                  *
@@ -606,8 +606,8 @@ YUI.add('bookie-api', function (Y) {
                  *
                  */
                 url: {
-                	required: true
-                } 
+                    required: true
+                }
             }
         }
     );
